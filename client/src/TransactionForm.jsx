@@ -1,74 +1,110 @@
 // client/src/TransactionForm.jsx
 import { useState } from 'react';
 
-export default function TransactionForm({ onSubmit }) {
-  const [type, setType] = useState('expense');
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
+function TransactionForm({ onAdd }) {
+  const [formData, setFormData] = useState({
+    type: 'expense',
+    amount: '',
+    description: '',
+    date: new Date().toISOString().split('T')[0]
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!amount) return alert('請輸入金額');
+    if (!formData.amount || !formData.description) return;
 
-    const data = {
-      type,
-      amount: parseFloat(amount),
-      note,
-    };
+    onAdd({
+      ...formData,
+      amount: parseFloat(formData.amount)
+    });
 
-    onSubmit(data);
-    setAmount('');
-    setNote('');
+    setFormData({
+      type: 'expense',
+      amount: '',
+      description: '',
+      date: new Date().toISOString().split('T')[0]
+    });
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 border rounded space-y-4 max-w-md mx-auto mt-6">
-      <h2 className="text-lg font-bold">新增記帳紀錄</h2>
+    <div className="card">
+      <h2 className="text-xl font-semibold mb-4">新增交易</h2>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            交易類型
+          </label>
+          <select
+            name="type"
+            value={formData.type}
+            onChange={handleChange}
+            className="input"
+          >
+            <option value="expense">支出</option>
+            <option value="income">收入</option>
+          </select>
+        </div>
 
-      <div>
-        <label>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            金額
+          </label>
           <input
-            type="radio"
-            value="expense"
-            checked={type === 'expense'}
-            onChange={() => setType('expense')}
+            type="number"
+            name="amount"
+            value={formData.amount}
+            onChange={handleChange}
+            placeholder="請輸入金額"
+            className="input"
+            min="0"
+            step="0.01"
+            required
           />
-          支出
-        </label>
-        <label className="ml-4">
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            描述
+          </label>
           <input
-            type="radio"
-            value="income"
-            checked={type === 'income'}
-            onChange={() => setType('income')}
+            type="text"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            placeholder="請輸入描述"
+            className="input"
+            required
           />
-          收入
-        </label>
-      </div>
+        </div>
 
-      <div>
-        <input
-          type="number"
-          placeholder="金額"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className="w-full border px-2 py-1 rounded"
-        />
-      </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            日期
+          </label>
+          <input
+            type="date"
+            name="date"
+            value={formData.date}
+            onChange={handleChange}
+            className="input"
+            required
+          />
+        </div>
 
-      <div>
-        <input
-          type="text"
-          placeholder="備註"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          className="w-full border px-2 py-1 rounded"
-        />
-      </div>
-
-      <button type="submit" className="bg-blue-500 text-white px-4 py-1 rounded">
-        儲存
-      </button>
-    </form>
+        <button type="submit" className="btn-primary w-full">
+          新增交易
+        </button>
+      </form>
+    </div>
   );
 }
+
+export default TransactionForm;
