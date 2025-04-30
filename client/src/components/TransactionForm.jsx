@@ -10,12 +10,13 @@ const TransactionForm = ({ onAddTransaction, type }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    onAddTransaction({
+    const transaction = {
       ...formData,
       type,
       amount: parseFloat(formData.amount),
-      id: Date.now()
-    })
+      created_at: new Date().toISOString()
+    }
+    onAddTransaction(transaction)
     setFormData({
       description: '',
       amount: '',

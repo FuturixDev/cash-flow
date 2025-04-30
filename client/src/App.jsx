@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom'
 import './App.css'
 import DailyDataVisualization from './components/DailyDataVisualization'
-import TransactionPage from './pages/TransactionPage'
 import TransactionsListPage from './pages/TransactionsListPage'
+import TransactionFormPage from './pages/TransactionFormPage'
+import { supabase } from './lib/supabaseClient'
 
 function Dashboard({ transactions, income, expense, balance, onAddTransaction }) {
   const navigate = useNavigate()
@@ -51,18 +52,18 @@ function Dashboard({ transactions, income, expense, balance, onAddTransaction })
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <div className="grid grid-cols-1 gap-8 mt-8">
           <div className="card animate-scale-in" style={{ animationDelay: '0.5s' }}>
             <h2 className="text-xl font-semibold text-white mb-4">Quick Actions</h2>
             <div className="space-y-4">
               <button 
-                onClick={() => navigate('/transaction/income')}
+                onClick={() => navigate('/transactions/new/income')}
                 className="w-full p-4 rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 transition-colors"
               >
                 Add Income
               </button>
               <button 
-                onClick={() => navigate('/transaction/expense')}
+                onClick={() => navigate('/transactions/new/expense')}
                 className="w-full p-4 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
               >
                 Add Expense
@@ -73,21 +74,6 @@ function Dashboard({ transactions, income, expense, balance, onAddTransaction })
               >
                 View All Transactions
               </button>
-            </div>
-          </div>
-
-          {/* Budget Tracking */}
-          <div className="card animate-scale-in" style={{ animationDelay: '0.6s' }}>
-            <h2 className="text-xl font-semibold text-white mb-4">Budget Tracking</h2>
-            <div className="space-y-4">
-              <div className="bg-slate-800/50 p-4 rounded-lg">
-                <p className="text-slate-400">Monthly Budget</p>
-                <p className="text-2xl font-bold text-white">$5,000</p>
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-lg">
-                <p className="text-slate-400">Remaining</p>
-                <p className="text-2xl font-bold text-emerald-400">$1,800</p>
-              </div>
             </div>
           </div>
         </div>
@@ -103,13 +89,27 @@ function App() {
   const [expense, setExpense] = useState(0)
 
   useEffect(() => {
-    const storedTransactions = localStorage.getItem('transactions')
-    if (storedTransactions) {
-      const parsedTransactions = JSON.parse(storedTransactions)
-      setTransactions(parsedTransactions)
-      calculateTotals(parsedTransactions)
-    }
+    fetchTransactions()
   }, [])
+
+  const fetchTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching transactions:', error.message)
+        return
+      }
+
+      setTransactions(data || [])
+      calculateTotals(data || [])
+    } catch (error) {
+      console.error('Error:', error.message)
+    }
+  }
 
   const calculateTotals = (transactions) => {
     const income = transactions
@@ -123,11 +123,75 @@ function App() {
     setBalance(income - expense)
   }
 
-  const addTransaction = (transaction) => {
-    const newTransactions = [...transactions, transaction]
-    setTransactions(newTransactions)
-    localStorage.setItem('transactions', JSON.stringify(newTransactions))
-    calculateTotals(newTransactions)
+  const addTransaction = async (transaction) => {
+    try {
+      console.log('Adding transaction:', transaction)
+      
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert([transaction])
+        .select()
+
+      if (error) {
+        console.error('Error adding transaction:', error.message)
+        return
+      }
+
+      console.log('Transaction added successfully:', data)
+
+      if (data && data.length > 0) {
+        const newTransactions = [...transactions, data[0]]
+        setTransactions(newTransactions)
+        calculateTotals(newTransactions)
+      }
+    } catch (error) {
+      console.error('Error:', error.message)
+    }
+  }
+
+  const updateTransaction = async (id, updatedTransaction) => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .update(updatedTransaction)
+        .eq('id', id)
+        .select()
+
+      if (error) {
+        console.error('Error updating transaction:', error.message)
+        return
+      }
+
+      if (data && data.length > 0) {
+        const newTransactions = transactions.map(t => 
+          t.id === id ? data[0] : t
+        )
+        setTransactions(newTransactions)
+        calculateTotals(newTransactions)
+      }
+    } catch (error) {
+      console.error('Error:', error.message)
+    }
+  }
+
+  const deleteTransaction = async (id) => {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        console.error('Error deleting transaction:', error.message)
+        return
+      }
+
+      const newTransactions = transactions.filter(t => t.id !== id)
+      setTransactions(newTransactions)
+      calculateTotals(newTransactions)
+    } catch (error) {
+      console.error('Error:', error.message)
+    }
   }
 
   return (
@@ -146,12 +210,18 @@ function App() {
           } 
         />
         <Route 
-          path="/transaction/:type" 
-          element={<TransactionPage onAddTransaction={addTransaction} />} 
+          path="/transactions/new/:type" 
+          element={<TransactionFormPage onAddTransaction={addTransaction} />} 
         />
         <Route 
           path="/transactions" 
-          element={<TransactionsListPage transactions={transactions} />} 
+          element={
+            <TransactionsListPage 
+              transactions={transactions}
+              onUpdateTransaction={updateTransaction}
+              onDeleteTransaction={deleteTransaction}
+            /> 
+          }
         />
       </Routes>
     </Router>

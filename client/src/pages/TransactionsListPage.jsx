@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const TransactionsListPage = ({ transactions }) => {
+const TransactionsListPage = ({ transactions, onUpdateTransaction, onDeleteTransaction }) => {
   const navigate = useNavigate()
   const [filter, setFilter] = useState('all') // 'all', 'income', 'expense'
   const [sortBy, setSortBy] = useState('date') // 'date', 'amount'
   const [sortOrder, setSortOrder] = useState('desc') // 'asc', 'desc'
+  const [editingTransaction, setEditingTransaction] = useState(null)
 
   // 過濾交易
   const filteredTransactions = transactions.filter(transaction => {
@@ -58,6 +59,31 @@ const TransactionsListPage = ({ transactions }) => {
   const getSortIcon = (field) => {
     if (sortBy !== field) return '↕'
     return sortOrder === 'desc' ? '↓' : '↑'
+  }
+
+  // 處理編輯
+  const handleEdit = (transaction) => {
+    setEditingTransaction(transaction)
+  }
+
+  // 處理保存編輯
+  const handleSaveEdit = async () => {
+    if (editingTransaction) {
+      await onUpdateTransaction(editingTransaction.id, editingTransaction)
+      setEditingTransaction(null)
+    }
+  }
+
+  // 處理取消編輯
+  const handleCancelEdit = () => {
+    setEditingTransaction(null)
+  }
+
+  // 處理刪除
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this transaction?')) {
+      await onDeleteTransaction(id)
+    }
   }
 
   return (
@@ -126,6 +152,7 @@ const TransactionsListPage = ({ transactions }) => {
                     Amount {getSortIcon('amount')}
                   </th>
                   <th className="text-center py-3 px-4 text-slate-300">Type</th>
+                  <th className="text-center py-3 px-4 text-slate-300">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -136,18 +163,82 @@ const TransactionsListPage = ({ transactions }) => {
                       className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors"
                     >
                       <td className="py-3 px-4 text-slate-300">
-                        {formatDate(transaction.date)}
+                        {editingTransaction?.id === transaction.id ? (
+                          <input
+                            type="date"
+                            value={editingTransaction.date}
+                            onChange={(e) => setEditingTransaction({
+                              ...editingTransaction,
+                              date: e.target.value
+                            })}
+                            className="bg-slate-800 text-white rounded px-2 py-1"
+                          />
+                        ) : (
+                          formatDate(transaction.date)
+                        )}
                       </td>
                       <td className="py-3 px-4 text-slate-300">
-                        {transaction.description}
+                        {editingTransaction?.id === transaction.id ? (
+                          <input
+                            type="text"
+                            value={editingTransaction.description}
+                            onChange={(e) => setEditingTransaction({
+                              ...editingTransaction,
+                              description: e.target.value
+                            })}
+                            className="bg-slate-800 text-white rounded px-2 py-1"
+                          />
+                        ) : (
+                          transaction.description
+                        )}
                       </td>
                       <td className="py-3 px-4 text-slate-300 capitalize">
-                        {transaction.category}
+                        {editingTransaction?.id === transaction.id ? (
+                          <select
+                            value={editingTransaction.category}
+                            onChange={(e) => setEditingTransaction({
+                              ...editingTransaction,
+                              category: e.target.value
+                            })}
+                            className="bg-slate-800 text-white rounded px-2 py-1"
+                          >
+                            {transaction.type === 'income' ? (
+                              <>
+                                <option value="salary">Salary</option>
+                                <option value="freelance">Freelance</option>
+                                <option value="investment">Investment</option>
+                                <option value="other">Other</option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="food">Food</option>
+                                <option value="transport">Transport</option>
+                                <option value="utilities">Utilities</option>
+                                <option value="entertainment">Entertainment</option>
+                                <option value="other">Other</option>
+                              </>
+                            )}
+                          </select>
+                        ) : (
+                          transaction.category
+                        )}
                       </td>
                       <td className={`py-3 px-4 text-right ${
                         transaction.type === 'income' ? 'text-cyan-400' : 'text-red-400'
                       }`}>
-                        {formatAmount(transaction.amount)}
+                        {editingTransaction?.id === transaction.id ? (
+                          <input
+                            type="number"
+                            value={editingTransaction.amount}
+                            onChange={(e) => setEditingTransaction({
+                              ...editingTransaction,
+                              amount: parseFloat(e.target.value)
+                            })}
+                            className="bg-slate-800 text-white rounded px-2 py-1"
+                          />
+                        ) : (
+                          formatAmount(transaction.amount)
+                        )}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`inline-block px-2 py-1 rounded text-xs ${
@@ -158,11 +249,44 @@ const TransactionsListPage = ({ transactions }) => {
                           {transaction.type === 'income' ? 'Income' : 'Expense'}
                         </span>
                       </td>
+                      <td className="py-3 px-4 text-center">
+                        {editingTransaction?.id === transaction.id ? (
+                          <div className="flex justify-center space-x-2">
+                            <button
+                              onClick={handleSaveEdit}
+                              className="text-green-400 hover:text-green-300"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-center space-x-2">
+                            <button
+                              onClick={() => handleEdit(transaction)}
+                              className="text-blue-400 hover:text-blue-300"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(transaction.id)}
+                              className="text-red-400 hover:text-red-300"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="py-8 text-center text-slate-400">
+                    <td colSpan="6" className="py-8 text-center text-slate-400">
                       No transactions found
                     </td>
                   </tr>
